@@ -1,0 +1,9 @@
+fastapi[all]
+
+sqlalchemy >= 2.0.0
+aiosqlite
+cryptography
+
+pytest
+pytest-asyncio
+alembic

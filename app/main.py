@@ -39,7 +39,7 @@ async def create_ticket_route(
 	)
 	return {"ticket_id" : ticket_id}
 
-@app.get("/tickets/{ticket_id}")
+@app.get("/ticket/{ticket_id}")
 async def read_ticket(
 	ticket_id: int,
 	db_session: Annotated[AsyncSession, Depends(get_db_session)]

@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from app.database import Base
 from app.db_connection import AsyncSessionLocal, get_db_session, get_engine
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.operations import create_ticket, update_ticket_price, delete_ticket, get_ticket, update_ticket_details, create_event, create_sponsor, add_sponsor_to_event
+from app.operations import create_ticket, update_ticket_price, delete_ticket, get_ticket, update_ticket_details, create_event, create_sponsor, add_sponsor_to_event, get_events_with_sponsors
 from typing import Annotated
 from pydantic import BaseModel, Field
 
@@ -154,3 +154,21 @@ async def register_sponsor_amount_contribution(
         )
 
     return {"detail": "Contribution registered"}
+
+@app.get("/events-with-sponsors")
+async def events_with_sponsors(
+	db_session: AsyncSession = Depends(get_db_session)
+):
+    events = await get_events_with_sponsors(db_session)
+
+    return [
+        {
+            "id": event.id,
+            "name": event.name,
+            "sponsors": [
+                {"id": sponsor.id, "name": sponsor.name}
+                for sponsor in event.sponsors
+            ]
+        }
+        for event in events
+    ]

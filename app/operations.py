@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, text
 from app.database import Ticket, TicketDetails, Event, Sponsor, Sponsorship
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload, load_only
 
 async def create_ticket(
 		db_session: AsyncSession,
@@ -135,3 +136,35 @@ async def add_sponsor_to_event(
         if result.rowcount == 0:
             return False
     return True
+
+# used eager loading with joined load
+async def get_events_with_sponsors(
+		db_session: AsyncSession
+) -> list[Event]:
+	query = select(Event).options(joinedload(Event.sponsors))
+	async with db_session as session:
+		result = await session.execute(query)
+		events = result.unique().scalars().all()
+	return events
+
+async def get_event_sponsorship_with_amount(
+		db_session: AsyncSession,
+		event_id: int
+):
+	query = select(Sponsor.name, Sponsorship.amount).join(Sponsorship, Sponsorship.sponsor_id == Sponsor.id).where(Sponsorship.event_id == event_id).order_by(Sponsorship.amount.desc())
+
+	async with db_session as session:
+		result = await session.execute(query)
+		sponsor_contributions = result.fetchall()
+	return sponsor_contributions
+
+async def get_events_ticket_with_user_price(
+		db_session: AsyncSession,
+		event_id: int
+) -> list[Ticket]:
+	query = select(Ticket).where(Ticket.event_id == event_id).options(load_only(Ticket.id, Ticket.user, Ticket.price))
+
+	async with db_session as session:
+		result = await session.execute(query)
+		tickets = result.scalars().all()
+	return tickets

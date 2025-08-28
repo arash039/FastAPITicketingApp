@@ -3,7 +3,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import Ticket
-from app.operations import create_ticket, update_ticket_price, delete_ticket, get_ticket
+from app.operations import create_ticket, update_ticket_price, delete_ticket, get_ticket, sell_ticket_to_user
 
 async def assert_ticket_table_is_empty(db_session: AsyncSession):
 	async with db_session as session:
@@ -38,3 +38,22 @@ async def test_update_ticket_price(add_single_ticket, db_session_test):
 async def test_delete_ticket(add_single_ticket, db_session_test):
 	assert await delete_ticket(db_session_test, 123) is False
 	assert await delete_ticket(db_session_test, 1234) is True
+
+async def test_concurrent_ticket_sell(
+		add_special_ticket,
+		db_session_test,
+		seconf_session_test
+):
+	result = await asyncio.gather(
+		sell_ticket_to_user(db_session_test, 12345, "User1"),
+		sell_ticket_to_user(seconf_session_test, 12345, "User2")
+	)
+
+	assert result in ([True, False], [False, True])
+
+	ticket = await get_ticket(db_session_test, 12345)
+
+	if result[0]:
+		assert ticket.user == "User1"
+	else:
+		assert ticket.user == "User2"

@@ -46,3 +46,13 @@ class Sponsorship(Base):
 	event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), primary_key=True)
 	sponsor_id: Mapped[int] = mapped_column(ForeignKey("sponsors.id"), primary_key=True)
 	amount: Mapped[float] = mapped_column(nullable=False, default=10)
+
+class CreditCard(Base):
+	__tablename__ = "credit_cards"
+
+	id: Mapped[int] = mapped_column(primary_key=True)
+	number: Mapped[str]
+	expiration_date: Mapped[str]
+	cvv: Mapped[str]
+	holder_name: Mapped[str]
+	

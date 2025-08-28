@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from app.database import Base
 from app.db_connection import AsyncSessionLocal, get_db_session, get_engine
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.operations import create_ticket, update_ticket_price, delete_ticket, get_ticket, update_ticket_details, create_event, create_sponsor, add_sponsor_to_event, get_events_with_sponsors
+from app.operations import create_ticket, update_ticket_price, delete_ticket, get_ticket, update_ticket_details, create_event, create_sponsor, add_sponsor_to_event, get_events_with_sponsors, sell_ticket_to_user
 from typing import Annotated
 from pydantic import BaseModel, Field
 from app.security import store_credit_card_info, retrive_card_info
@@ -207,3 +207,24 @@ async def get_credit_card_info(
 			detail="card not found"
 		)
 	return credit_card
+
+@app.put("/sellticket/{ticket_id}")
+async def sell_ticket_to_user_route(
+	ticket_id: int,
+	user: str,
+	db_session: AsyncSession = Depends(get_db_session)
+):
+	ticket = await get_ticket(db_session, ticket_id)
+
+	if not ticket:
+		raise HTTPException(
+			status_code=404,
+			detail="ticket not found"
+		)
+	
+	sell_status =  await sell_ticket_to_user(db_session, ticket_id, user)
+
+	if sell_status == True:
+		return f"Ticket sold to {user} successully"
+	else:
+		return f"Ticket is already sold to {user}"

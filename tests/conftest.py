@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from app.database import Base, Ticket
+from app.database import Base, Ticket, TicketDetails
 from app.db_connection import get_db_session
 from app.main import app
 
@@ -25,6 +25,13 @@ async def db_session_test(db_engine_test):
 	await db_engine_test.dispose()
 
 @pytest.fixture
+async def seconf_session_test(db_engine_test):
+	TestAsyncSessionLocal = sessionmaker(bind=db_engine_test, class_=AsyncSession)
+	
+	async with TestAsyncSessionLocal() as session:
+		yield session
+
+@pytest.fixture
 async def add_single_ticket(db_session_test):
     ticket = Ticket(
         id = 1234,
@@ -42,3 +49,14 @@ def test_client(db_session_test):
 	app.dependency_overrides[get_db_session] = lambda: db_session_test
 	
 	return client
+
+@pytest.fixture
+async def add_special_ticket(db_session_test):
+	ticket = Ticket(
+		id = 12345,
+		show = "Special Show",
+		details = TicketDetails()
+	)
+	async with db_session_test.begin():
+		db_session_test.add(ticket)
+		await db_session_test.commit()

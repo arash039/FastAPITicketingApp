@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete, text
+from sqlalchemy import select, update, delete, text, and_, values
 from app.database import Ticket, TicketDetails, Event, Sponsor, Sponsorship
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, load_only
@@ -96,46 +96,46 @@ async def create_event(
 	return event_id
 
 async def create_sponsor(
-    db_session: AsyncSession,
-    sponsor_name: str,
+	db_session: AsyncSession,
+	sponsor_name: str,
 ) -> int:
-    async with db_session.begin():
-        sponsor = Sponsor(name=sponsor_name)
-        db_session.add(sponsor)
-        try:
-            await db_session.flush()
-        except IntegrityError:
-            return
-        sponsor_id = sponsor.id
-        await db_session.commit()
-    return sponsor_id
+	async with db_session.begin():
+		sponsor = Sponsor(name=sponsor_name)
+		db_session.add(sponsor)
+		try:
+			await db_session.flush()
+		except IntegrityError:
+			return
+		sponsor_id = sponsor.id
+		await db_session.commit()
+	return sponsor_id
 
 async def add_sponsor_to_event(
-    db_session: AsyncSession,
-    event_id: int,
-    sponsor_id: int,
-    amount: float,
+	db_session: AsyncSession,
+	event_id: int,
+	sponsor_id: int,
+	amount: float,
 ) -> bool:
-    query = text(
-        "INSERT INTO sponsorships "
-        "(event_id, sponsor_id, amount) "
-        "VALUES (:event_id, :sponsor_id, :amount) "
-        "ON CONFLICT (event_id, sponsor_id) "
-        "DO UPDATE SET amount = "
-        "sponsorships.amount + EXCLUDED.amount"
-    )
-    params = {
-        "event_id": event_id,
-        "sponsor_id": sponsor_id,
-        "amount": amount,
-    }
+	query = text(
+		"INSERT INTO sponsorships "
+		"(event_id, sponsor_id, amount) "
+		"VALUES (:event_id, :sponsor_id, :amount) "
+		"ON CONFLICT (event_id, sponsor_id) "
+		"DO UPDATE SET amount = "
+		"sponsorships.amount + EXCLUDED.amount"
+	)
+	params = {
+		"event_id": event_id,
+		"sponsor_id": sponsor_id,
+		"amount": amount,
+	}
 
-    async with db_session.begin():
-        result = await db_session.execute(query, params)
-        await db_session.commit()
-        if result.rowcount == 0:
-            return False
-    return True
+	async with db_session.begin():
+		result = await db_session.execute(query, params)
+		await db_session.commit()
+		if result.rowcount == 0:
+			return False
+	return True
 
 # used eager loading with joined load
 async def get_events_with_sponsors(
@@ -168,3 +168,24 @@ async def get_events_ticket_with_user_price(
 		result = await session.execute(query)
 		tickets = result.scalars().all()
 	return tickets
+	
+async def sell_ticket_to_user(
+	db_session: AsyncSession, ticket_id: int, user: str
+) -> bool:
+	ticket_query = (
+		update(Ticket)
+		.where(
+			and_(
+				Ticket.id == ticket_id,
+				Ticket.sold == False,
+			)
+		)
+		.values(user=user, sold=True)
+	)
+	
+	async with db_session as session:
+		result = await session.execute(ticket_query)
+		await session.commit()
+		if result.rowcount == 0:
+			return False
+	return True

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.operations import create_ticket, update_ticket_price, delete_ticket, get_ticket, update_ticket_details, create_event, create_sponsor, add_sponsor_to_event, get_events_with_sponsors
 from typing import Annotated
 from pydantic import BaseModel, Field
+from app.security import store_credit_card_info, retrive_card_info
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,6 +29,12 @@ class TicketDetailsUpdateRequest(BaseModel):
 
 class TicketUpdateRequest(BaseModel):
 	price: float | None = Field(None, ge=0)
+
+class CreditCardRequest(BaseModel):
+	holder_name: str
+	number: str
+	expiry_date: str
+	cvv: str
 
 @app.post("/ticket", response_model=dict[str, int])
 async def create_ticket_route(
@@ -172,3 +179,31 @@ async def events_with_sponsors(
         }
         for event in events
     ]
+
+@app.post("/creditcard")
+async def save_credit_card_info(
+	credit_card: CreditCardRequest,
+	db_session: AsyncSession = Depends(get_db_session),
+):
+	credit_crad_id = await store_credit_card_info(
+		db_session,
+		credit_card.number,
+		credit_card.holder_name,
+		credit_card.expiry_date,
+		credit_card.cvv
+	)
+	
+	return {"creditcard_id" : credit_crad_id}
+
+@app.get("/creditcard/{card_id}")
+async def get_credit_card_info(
+	card_id: int,
+	db_session: AsyncSession = Depends(get_db_session)
+):
+	credit_card = await retrive_card_info( db_session=db_session, card_id=card_id)
+	if credit_card is None:
+		raise HTTPException(
+			status_code=404,
+			detail="card not found"
+		)
+	return credit_card
